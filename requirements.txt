@@ -1,0 +1,9 @@
+numpy>=1.26
+scipy>=1.11
+torch>=2.4
+# semantic expert (document vectors)
+sentence-transformers>=3.0
+# Stage 2 judge and LLM baselines
+transformers>=4.56
+peft>=0.13
+accelerate>=0.34
