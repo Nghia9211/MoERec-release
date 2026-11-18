@@ -11,7 +11,7 @@ The channels are mixed with per-user weights `w(u) = w + Δ(x_u)`. A small gate 
 
 **Stage 2.** A pointwise judge (Qwen3-8B + LoRA) scores the Stage 1 top-10. It is trained on a second, disjoint group of held-out users (fold 2). The final score is `z(Stage 1) + λ · z(judge)`, with `λ` chosen on calibration users.
 
-This repository contains code only. No datasets, checkpoints, model weights or results are included.
+This repository contains code only. No datasets, checkpoints or model weights are included. Summary tables of the results (Stage 1, Stage 2 and all baselines) are in [RESULTS.md](RESULTS.md).
 
 ## Install
 
@@ -75,8 +75,8 @@ python -m moerec.eval.seeds $WORK/runs/s303 $WORK/runs/s304 $WORK/runs/s305
 | `moerec/experts` | Expert training (`train`), document vectors (`encode`), pool scoring (`score`) |
 | `moerec/stage1` | Nomination, channels and gate inputs (`channels`), J1 learning (`j1`), CLI (`pipeline`) |
 | `moerec/stage2` | Judge prompts, fold-2 training pairs, LoRA training, scoring, fusion (`fuse`) |
-| `moerec/baselines` | Early / late score fusion, LIME-Rec, listwise LLM, LlamaRec, TALLRec |
-| `moerec/eval` | Main report, larger pools, ablation, seed table |
+| `moerec/baselines` | Early / late score fusion, LIME-Rec, Feature-Weighted Linear Stacking (`fwls`), listwise LLM, LlamaRec, TALLRec |
+| `moerec/eval` | Main report, larger pools, ablation, seed table, inference cost (`cost`) |
 
 ## Tests
 
