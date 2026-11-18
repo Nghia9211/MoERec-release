@@ -1,0 +1,32 @@
+# never commit data, checkpoints or results
+*.npz
+*.npy
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.jsonl
+*.jsonl.gz
+*.gz
+*.tgz
+*.tar
+*.zip
+*.pkl
+*.sqlite
+*.log
+/data/
+/work/
+/runs/
+/results*/
+/checkpoints/
+lora*/
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+# editors
+.vscode/
+.idea/
+.DS_Store
