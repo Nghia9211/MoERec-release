@@ -11,7 +11,7 @@ The channels are mixed with per-user weights `w(u) = w + Δ(x_u)`. A small gate 
 
 **Stage 2.** A pointwise judge (Qwen3-8B + LoRA) scores the Stage 1 top-10. It is trained on a second, disjoint group of held-out users (fold 2). The final score is `z(Stage 1) + λ · z(judge)`, with `λ` chosen on calibration users.
 
-This repository contains code only. No datasets, checkpoints or model weights are included. Summary tables of the results (Stage 1, Stage 2 and all baselines) are in [RESULTS.md](RESULTS.md).
+This repository contains code only. No datasets, checkpoints or model weights are included. Summary tables of the results (Stage 1, Stage 2 and all baselines) are in [RESULTS.md](RESULTS.md); follow-up analyses (why the pipeline works, leakage, pair-level weights, LLM reranker variants) are explained in [FINDINGS.md](FINDINGS.md).
 
 ## Install
 
