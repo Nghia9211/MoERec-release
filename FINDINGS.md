@@ -57,22 +57,22 @@ J2 lets the fusion weights depend on the (user, item) pair: w(u, x) = w + MLP(x_
 
 **Fused with Stage 1, fine-tuned LLMs are on par.** With the same rule z(S1) + λ·z(LLM): pointwise judge 0.5066, LlamaRec 0.5070.
 
-**Why LlamaRec alone beats the judge alone.** Not because it sees more candidates (restricting it to the top-10 makes it better, not worse) and not mainly position bias (shuffling the candidate order changes little). It follows the J1 ranking closely: it picks J1's first item as its first choice about twice as often as the judge. The listwise format (comparing the candidates in one prompt) is the main difference.
+**Why LlamaRec alone beats the judge alone.** Not because it sees more candidates (restricting it to the top-10 makes it better, not worse) and not position bias (shuffling the candidate order in the prompt leaves it unchanged: 0.3811 vs 0.3791). It follows the J1 ranking closely: it picks J1's first item as its first choice about twice as often as the judge. The listwise format (comparing the candidates in one prompt) is the main difference.
 
 **Held-out listwise judges.** LJ = the LlamaRec model trained on the judge's data (fold-2 held-out users, J1 top-10 as hard negatives, shuffled order); RJ = the same with the Stage 1 score inside the training loss (a·z(S1) + λ·LLM, a and λ learned).
 
 | Dataset | Stage 1 + judge (current) | LlamaRec + Stage 1 | LJ + Stage 1 | RJ (`*` / `†` = better / worse than current) |
 |---|---|---|---|---|
-| Video Games | 0.5628 | 0.5643 | running | 0.5709* |
+| Video Games | 0.5628 | 0.5643 | 0.5681 | 0.5709* |
 | Musical Instr. | 0.4309 | 0.4331 | 0.4319 | 0.4358* |
 | Industrial & Sci. | 0.3721 | 0.3799 | 0.3819 | 0.3804* |
-| Goodreads | 0.6861 | 0.6712 | running | 0.6714† |
-| Yelp | 0.5575 | 0.5527 | running | 0.5561 |
+| Goodreads | 0.6861 | 0.6712 | 0.6736 | 0.6714† |
+| Yelp | 0.5575 | 0.5527 | 0.5532 | 0.5561 |
 | Cell Phones | 0.4274 | 0.4366 | 0.4419 | 0.4434* |
 | Movies & TV | 0.5094 | 0.5111 | 0.5113 | 0.5076 |
-| **Mean** | 0.5066 | 0.5070 |  | 0.5094 |
+| **Mean** | 0.5066 | 0.5070 | 0.5089 | 0.5094 |
 
-RJ is better than the current pipeline on 4/7 datasets and worse on 1 (Goodreads), better than LlamaRec + Stage 1 on 2/7 and never worse; the learned λ gives the same accuracy as λ tuned on calibration. RJ is architecturally LlamaRec; its edge comes from the held-out, hard-negative training data, while putting the Stage 1 score into the loss adds little (RJ ≈ LJ where both exist). It is also about 4 times cheaper than the pointwise judge.
+RJ is better than the current pipeline on 4/7 datasets and worse on 1 (Goodreads), better than LlamaRec + Stage 1 on 2/7 and never worse; the learned λ gives the same accuracy as λ tuned on calibration. RJ is architecturally LlamaRec; its edge comes from the held-out, hard-negative training data, while putting the Stage 1 score into the loss adds little (RJ 0.5094 vs LJ 0.5089). It is also about 4 times cheaper than the pointwise judge.
 
 ## 5. Cost
 
