@@ -179,8 +179,95 @@ LLM steps (Qwen3-8B bf16, shared H100, (110 − 10 users) / 100, Industrial and 
 | Listwise zero-shot | 2.126 | 15.9 |
 | TALLRec independent (100 items) | 2.363 | 19.6 |
 
+## 9. Additional analyses (seed 303, pool 100, mean over 7 datasets unless stated)
+
+Generated from the archived scores (CPU) plus retrained Stage 1 variants; no new tuning on test. CombSUM3 / RRF3 below use equal weights, so they differ from the tuned rows of section 1.
+
+**9.1 More metrics (test).**
+
+| Method | HR@1 | HR@5 | HR@10 | NDCG@5 | NDCG@10 | MRR |
+|---|---|---|---|---|---|---|
+| SASRec | 0.3103 | 0.5692 | 0.6803 | 0.4463 | 0.4824 | 0.4331 |
+| LightGCN | 0.2822 | 0.5514 | 0.6639 | 0.4236 | 0.4600 | 0.4097 |
+| Semantic | 0.1245 | 0.2922 | 0.4103 | 0.2095 | 0.2476 | 0.2192 |
+| CombSUM3 (equal weights) | 0.3318 | 0.6022 | 0.7097 | 0.4745 | 0.5094 | 0.4586 |
+| RRF3 (equal weights) | 0.2609 | 0.5526 | 0.6964 | 0.4117 | 0.4583 | 0.3975 |
+| J1 | 0.3500 | 0.6202 | 0.7279 | 0.4920 | 0.5270 | 0.4755 |
+| Stage 1 + 2 | 0.3656 | 0.6329 | 0.7279 | 0.5066 | 0.5375 | 0.4891 |
+
+HR@10 is identical for J1 and Stage 1 + 2 because Stage 2 only reorders the J1 top-10.
+
+**9.2 User groups (NDCG@5).** By history length (users pooled over datasets):
+
+| History length | n | SASRec | LightGCN | Semantic | CombSUM3 | J1 | Stage 1 + 2 |
+|---|---|---|---|---|---|---|---|
+| 1-3 | 4,560 | 0.4498 | 0.4255 | 0.1979 | 0.4722 | 0.4869 | 0.5017 |
+| 4-7 | 10,946 | 0.4580 | 0.4311 | 0.2088 | 0.4797 | 0.4969 | 0.5084 |
+| 8-15 | 4,169 | 0.4635 | 0.4248 | 0.2058 | 0.4823 | 0.5045 | 0.5207 |
+| 16-31 | 1,433 | 0.4854 | 0.4561 | 0.2154 | 0.5197 | 0.5417 | 0.5622 |
+| 32+ | 962 | 0.4671 | 0.4406 | 0.2107 | 0.5061 | 0.5342 | 0.5742 |
+
+J1 and Stage 1 + 2 beat every expert in every bin; the Stage 2 gain grows with history length (+0.015 for 1-3 items, +0.040 for 32+). By popularity of the target item (tertiles of training degree within each dataset):
+
+| Target group | SASRec | LightGCN | Semantic | CombSUM3 | J1 | Stage 1 + 2 |
+|---|---|---|---|---|---|---|
+| head | 0.7495 | 0.7560 | 0.2075 | 0.7625 | 0.7810 | 0.7889 |
+| mid | 0.4670 | 0.4133 | 0.2125 | 0.4872 | 0.5025 | 0.5147 |
+| tail | 0.1363 | 0.1143 | 0.2088 | 0.1864 | 0.2051 | 0.2282 |
+
+On tail targets the Semantic expert alone (0.2088) is better than J1 on average, and per dataset on Industrial & Sci., Musical Instr. and Cell Phones (tail NDCG@5, Semantic vs J1: 0.1537 vs 0.1098, 0.1935 vs 0.1667, 0.1808 vs 0.0862). The advantage of fusion is concentrated on head and mid items.
+
+**9.3 Gate weights** (test users; mean of w(u) with the global weight in brackets): SASRec 0.403 (0.395), LightGCN 0.236 (0.252), Semantic 0.166 (0.195), co_sum 0.034, co_max 0.060, popularity 0.023, brand 0.051, category 0.046. Spearman correlation of w(u) with history length: popularity −0.31, co_max +0.21, co_sum +0.17, LightGCN −0.15, Semantic −0.11, SASRec +0.10.
+
+**9.4 Recovery** (target in J1 top-k although no single expert has it in its own top-k). Top-5: 1.30% of users, i.e. 2.2% of J1 hits; top-1: 2.09% / 6.2%; top-10: 0.79% / 1.1%. The reverse case (some expert has the target in its top-5, J1 does not) is 10.3% of users, and the best-expert oracle reaches 0.710 HR@5 against 0.620 for J1. J1 NDCG@5 by number of experts that nominate the target in their top-20 (share of users): 0 → 0.000 (9.6%), 1 → 0.045 (13.4%), 2 → 0.468 (32.2%), 3 → 0.747 (44.8%). Most of the gain therefore comes from agreement between experts, not from rescuing items that no expert ranks highly.
+
+**9.5 Sensitivity.**
+
+| Nominated per expert (N, J1 retrained, penalty fixed) | 5 | 10 | 20 | 30 | 50 |
+|---|---|---|---|---|---|
+| Test NDCG@5 | 0.4910 | 0.4924 | 0.4920 | 0.4916 | 0.4919 |
+| Recall of U | 0.710 | 0.816 | 0.904 | 0.944 | 0.980 |
+
+| Judge depth (Stage 1 top-k reranked) | 3 | 5 | 10 |
+|---|---|---|---|
+| Test NDCG@5 | 0.4967 | 0.5002 | 0.5066 |
+
+| λ | 0.25 | 0.50 | 0.75 | 1.00 | 1.50 | 2.00 |
+|---|---|---|---|---|---|---|
+| Δ NDCG@5 vs J1, calibration | +0.0091 | +0.0086 | +0.0019 | −0.0081 | −0.0304 | −0.0505 |
+| Δ NDCG@5 vs J1, test (post hoc, not used for selection) | +0.0104 | +0.0096 | +0.0026 | −0.0077 | −0.0319 | −0.0521 |
+
+**9.6 Calibration size for λ** (20 random calibration subsets per size; test Δ of Stage 1 + 2 over J1): 100 users +0.0111 (λ SD 0.29, 21% of draws negative); 200 users +0.0128; 500 users +0.0141; 1,000 users and the full calibration set +0.0146. (For most datasets 1,000 is the full calibration set.)
+
+**9.7 Where Stage 2 helps or hurts** (Δ NDCG@5 over J1, share of users helped / hurt):
+
+| Group | Δ | Helped | Hurt |
+|---|---|---|---|
+| J1 rank of target = 1 | −0.0214 | 0.0% | 5.3% |
+| J1 rank 2-3 | +0.0485 | 24.4% | 15.3% |
+| J1 rank 4-5 | +0.0023 | 38.7% | 22.5% |
+| J1 rank 6-10 | +0.1484 | 29.6% | 0.0% |
+| J1 top-1 margin: low / mid / high tercile | +0.0269 / +0.0130 / +0.0038 | 16.1 / 10.5 / 4.9% | 9.6 / 6.5 / 3.6% |
+| Judge-S1 correlation: low / mid / high tercile | +0.0207 / +0.0154 / +0.0076 | 13.3 / 11.1 / 7.2% | 8.5 / 6.6 / 4.6% |
+
+Stage 2 helps most when J1 is uncertain; when J1 already ranks the target first it hurts 5.3% of those users.
+
+**9.8 BERT4Rec and the choice of experts.** BERT4Rec (Sun et al., CIKM 2019; hidden 64, 2 layers, 2 heads, max length 50, cloze mask 0.2 plus the last position masked with p = 0.5, full softmax, trained on the same samples as the SASRec expert, early stopping on validation next-item cross-entropy). A first version (default N(0,1) embedding initialisation, one sequence per user) did not learn (validation cross-entropy ≈ ln |items|); it was discarded and the initialisation (N(0, 0.02)) and training samples changed before the reported version. That fix was decided on validation loss, but the test NDCG@5 of the failed version had already been seen. BERT4Rec as a single model (test NDCG@5): VG 0.5324, MI 0.3960, I&S 0.3454, GR 0.5443, Yelp 0.5356, CP 0.3548, M&TV 0.3889, mean 0.4425 (SASRec 0.4463, J1 0.4920).
+
+J1 re-learned (fold 1, same protocol) with different expert sets; the 3-expert set reproduces J1 exactly:
+
+| Experts in J1 | VG | MI | I&S | GR | Yelp | CP | M&TV | Mean | Recall of U |
+|---|---|---|---|---|---|---|---|---|---|
+| SASRec + LightGCN | 0.5406 | 0.4250 | 0.3639 | 0.6309 | 0.5522 | 0.3941 | 0.4601 | 0.4810 | |
+| SASRec + LightGCN + BERT4Rec | 0.5570 | 0.4323 | 0.3885 | 0.6359 | 0.5646 | 0.4007 | 0.4673 | 0.4923 | |
+| SASRec + LightGCN + Semantic (J1) | 0.5526 | 0.4298 | 0.3738 | 0.6491 | 0.5509 | 0.4000 | 0.4879 | 0.4920 | 0.9036 |
+| BERT4Rec + LightGCN + Semantic | 0.5578 | 0.4268 | 0.3980 | 0.6452 | 0.5528 | 0.3992 | 0.4814 | 0.4945 | |
+| **SASRec + LightGCN + Semantic + BERT4Rec** | 0.5668 | 0.4371 | 0.3947 | 0.6550 | 0.5631 | 0.4103 | 0.4943 | **0.5030** | 0.9219 |
+
+Four experts vs J1, paired bootstrap, all 7 datasets significant: VG +0.0142, MI +0.0073, I&S +0.0209, GR +0.0059, Yelp +0.0122, CP +0.0103, M&TV +0.0064. This configuration was designed after seeing results and run once (seed 303); it has no Stage 2, other seeds or calibration-only selection yet.
+
 ## Notes
 
 - Results on sampled candidate sets overstate full-catalogue accuracy; section 4 bounds this.
-- Experiments still running at the time of writing (not included): held-out listwise judge variants (LlamaRec-style model trained on fold 2, with and without the Stage 1 score in the loss).
+- Experiments still running at the time of writing (not included): held-out listwise judge variants (LlamaRec-style model trained on fold 2, with and without the Stage 1 score in the loss); Stage 2 on the larger candidate sets for seeds 304 / 305.
 - Reproduction: `scripts/run_dataset.sh` and the modules listed in the README; `tests/reproduce.py` checks a run against archived outputs.
