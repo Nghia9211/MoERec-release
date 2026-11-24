@@ -77,6 +77,19 @@ Pool 500 / 1000 extend pool 100 with the same random negative stream (nested); f
 
 Stage 2 significantly improves J1 on 4/7, 3/7 and 2/7 datasets (pool 500, 1000, full catalogue); never significantly worse. At pool 100 the recall of U is 0.904.
 
+Seeds 304 / 305 at pool 500 and 1000 (retrained parts as in Section 3; full catalogue was run for seed 303 only). (a/b) = datasets where Stage 1 + 2 is significantly better / worse than J1.
+
+| Pool | Seed | J1 | Stage 1 + 2 | Stage 2 vs J1 |
+|---|---|---|---|---|
+| 500 | 303 | 0.2979 | 0.3077 | 4/0 |
+| 500 | 304 | 0.2975 | 0.3059 | 4/1 |
+| 500 | 305 | 0.2979 | 0.3067 | 4/0 |
+| 1000 | 303 | 0.2319 | 0.2398 | 3/0 |
+| 1000 | 304 | 0.2316 | 0.2394 | 4/0 |
+| 1000 | 305 | 0.2319 | 0.2406 | 4/0 |
+
+Mean over seeds: pool 500 J1 0.2978 → 0.3068 (+0.0090); pool 1000 J1 0.2318 → 0.2399 (+0.0081). J1 beats every single expert and the early/late fusion baselines on 6–7/7 datasets at every seed. The one significant loss is Yelp at pool 500, seed 304 (−0.0088, 95% CI [−0.0137, −0.0041]).
+
 ## 5. Further baselines
 
 **RecRanker** (Luo et al., arXiv:2312.16018; ported: Qwen3-8B LoRA, 3,000 sampled users per dataset, hybrid ranking Eq. 9 with the paper defaults), J1 top-10, 1,000 test users per dataset (calibration 500 for λ); every column on the same users:
