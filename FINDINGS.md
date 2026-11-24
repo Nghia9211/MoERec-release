@@ -2,7 +2,7 @@
 
 This note explains the experiments run after the main pool-100 study ([RESULTS.md](RESULTS.md)). They test *why* the pipeline works and whether its parts can be replaced by known methods. Unless stated otherwise: pool 100, NDCG@5 on the full test sets, every choice made on the calibration users, `*` = paired bootstrap (2,000) 95% CI of the difference excludes 0.
 
-**Status.** These are follow-up analyses, not part of the locked pipeline. Several designs (J2, the held-out listwise judges) were proposed after test results of the main study had been seen; they still need confirmation on seeds 304 / 305 before any claim. Code: `moerec/baselines/fwls.py`, `moerec/stage1/pairgate.py`, `moerec/eval/cost.py`; the LLM-side scripts are not in the package yet.
+**Status.** These are follow-up analyses, not part of the locked pipeline. Several designs (the held-out listwise judges) were proposed after test results of the main study had been seen; they still need confirmation on seeds 304 / 305 before any claim. Code: `moerec/baselines/fwls.py`, `moerec/stage1/pairgate.py`, `moerec/eval/holdout_protocols.py`, `moerec/eval/cost.py`; the LLM-side scripts are not in the package yet.
 
 ## 1. The Stage 1 gate is feature-weighted stacking; what matters is how it is learned
 
@@ -34,22 +34,44 @@ The co-occurrence channel almost "knows" the answer in-sample because the intera
 
 **Attribution.** Collapse with all 8 channels: 0.0858; without the two co-occurrence channels: 0.0233 (about 73% of the collapse is the graph leak); with the 3 experts only: 0.0164 (the experts trained on the answer). Both are known forms of target leakage (out-of-fold stacking, Wolpert 1992 and Breiman 1996; target links in GNN link prediction, SpotTarget, WSDM 2023; target statistics, CatBoost, NeurIPS 2018). The contribution is measuring them in multi-expert recommender fusion; the fix is the two held-out folds.
 
-## 3. Pair-level fusion weights (J2) and LambdaMART
+**Motivation: every signal source must be blind to the answer, not only the model being tuned.** A cheaper protocol than two held-out folds is to learn the fusion on validation items, as LIME-Rec does. Whether this is safe depends on *which* components never saw those items. We compared four protocols with the same J1 recipe (`moerec/eval/holdout_protocols.py`; seed 303; designed after the main results, so read as diagnostic):
 
-J2 lets the fusion weights depend on the (user, item) pair: w(u, x) = w + MLP(x_u, g_ux), where g_ux are 6 item-level features (the item's rank under each expert, how many experts nominate it, and how much the experts disagree about it). Everything else is J1. LambdaMART (LightGBM lambdarank) receives the same 26 per-candidate features and the same fold-1 users.
+- **Reused validation split:** learn on the last item of the SASRec validation users, scored by the main experts. SASRec never trained on these items, but LightGCN and the co-occurrence / popularity graph did. This is what one gets by reusing an existing early-stopping split.
+- **Reused split, clean graph:** the same rows, with those user-item edges removed from the co-occurrence / popularity graph. Only LightGCN has still seen the answer.
+- **Fold 1, same size:** J1 learned on a random subset of fold 1 with as many rows as the validation split (size control).
+- **One expert set:** the locked J1 gate applied to test pools scored by the fold-1 experts, i.e. a single expert set that never saw the held-out items, with no retrained main experts (LIME-Rec style).
 
-| Dataset | J1 | J2 (vs J1) | LambdaMART (vs J1) |
-|---|---|---|---|
-| Video Games | 0.5526 | 0.5571 (+0.0045*) | 0.5535 (+0.0010) |
-| Musical Instr. | 0.4298 | 0.4334 (+0.0036*) | 0.4257 (−0.0041) |
-| Industrial & Sci. | 0.3738 | 0.3742 (+0.0004) | 0.3646 (−0.0092*) |
-| Goodreads | 0.6491 | 0.6682 (+0.0192*) | 0.6649 (+0.0158*) |
-| Yelp | 0.5509 | 0.5506 (−0.0003) | 0.5443 (−0.0066*) |
-| Cell Phones | 0.4000 | 0.4087 (+0.0087*) | 0.4078 (+0.0078*) |
-| Movies & TV | 0.4879 | 0.4927 (+0.0048*) | 0.4907 (+0.0028) |
-| **Mean** | 0.4920 | 0.4978 | 0.4931 |
+| Dataset | J1 (fold 1) | Reused validation split | Reused split, clean graph | Fold 1, same size | One expert set |
+|---|---|---|---|---|---|
+| Video Games | 0.5526 | 0.4315 (−0.1211*) | 0.5306 (−0.0220*) | 0.5525 (+0.0000) | 0.5560 (+0.0034) |
+| Musical Instr. | 0.4298 | 0.3128 (−0.1170*) | 0.3754 (−0.0544*) | 0.4291 (−0.0007) | 0.4259 (−0.0038) |
+| Industrial & Sci. | 0.3738 | 0.2714 (−0.1024*) | 0.2960 (−0.0778*) | 0.3689 (−0.0049*) | 0.3678 (−0.0060) |
+| Goodreads | 0.6491 | 0.5763 (−0.0728*) | 0.6005 (−0.0486*) | 0.6471 (−0.0019) | 0.6474 (−0.0017) |
+| Yelp | 0.5509 | 0.4621 (−0.0888*) | 0.5389 (−0.0120*) | 0.5506 (−0.0003) | 0.5492 (−0.0017) |
+| Cell Phones | 0.4000 | 0.2926 (−0.1074*) | 0.2661 (−0.1339*) | 0.3977 (−0.0023) | 0.3994 (−0.0006) |
+| Movies & TV | 0.4879 | 0.3621 (−0.1258*) | 0.3991 (−0.0888*) | 0.4880 (+0.0001) | 0.4877 (−0.0002) |
+| **Mean** | 0.4920 | 0.3870 | 0.4295 | 0.4906 | 0.4905 |
 
-**Reading.** J2 is significantly better than J1 on 5/7 datasets and worse on 0, and higher than LambdaMART on 7/7. LambdaMART with the same features only matches J1, so the gain is not just the extra features. This is the first architectural change that helps Stage 1. Caveats: designed after seeing test results (needs seeds 304 / 305), J2 vs LambdaMART not yet tested for significance, and UMRE (arXiv:2508.07613) also learns per user-item fusion weights, so novelty must be checked against it. Stage 2 has not been re-run on top of J2.
+Reusing the validation split collapses *further* than learning fully in-sample (0.3870 vs 0.4063, worse on 7/7 datasets). The learned fusion puts 0.52 to 1.16 on co-occurrence (sum): one leaking channel is enough for the fusion to latch onto it. Cleaning the graph recovers only part of the loss (0.4295, still worse on 7/7), because the LightGCN embeddings were trained on the answer edge. Size is not the issue (0.4906 with as few rows). A single expert set that never saw the held-out items matches J1 (0.4905, no significant difference on any dataset), so the protocol LIME-Rec follows is sound and the extra main-expert training can be dropped.
+
+The requirement is therefore stronger than "learn the fusion out-of-fold": every expert *and* every collaborative signal must be computed without the held-out interaction. A split that is held out for one expert only, such as the early-stopping split of SASRec, gives the worst of the protocols we tested. The same trap is reported for LLM rerankers trained on users that overlap with the evaluation users (The Recall Ceiling of LLM Recommendation Reranking, CIKM 2026).
+
+## 3. LambdaMART on the same Stage 1 inputs
+
+LambdaMART (LightGBM lambdarank) is trained on the same fold-1 users and candidates (U) as J1, with 26 per-candidate features: the 8 channels, 6 item-level features (the item's rank under each expert, how many experts nominate it, and how much the experts disagree about it) and the 12 user features of the gate.
+
+| Dataset | J1 | LambdaMART (vs J1) |
+|---|---|---|
+| Video Games | 0.5526 | 0.5535 (+0.0010) |
+| Musical Instr. | 0.4298 | 0.4257 (−0.0041) |
+| Industrial & Sci. | 0.3738 | 0.3646 (−0.0092*) |
+| Goodreads | 0.6491 | 0.6649 (+0.0158*) |
+| Yelp | 0.5509 | 0.5443 (−0.0066*) |
+| Cell Phones | 0.4000 | 0.4078 (+0.0078*) |
+| Movies & TV | 0.4879 | 0.4907 (+0.0028) |
+| **Mean** | 0.4920 | 0.4931 |
+
+**Reading.** A standard learning-to-rank model with more features only matches J1 on average (0.4931 vs 0.4920): significantly better on 2/7 datasets (Goodreads, Cell Phones) and worse on 2/7 (Industrial, Yelp).
 
 ## 4. LLM rerankers: what helps and what does not
 
@@ -81,5 +103,4 @@ Stage 1 costs 2.7 ms per user on CPU at pool 100 and 22.1 ms on the full catalog
 ## 6. What this means for the paper
 
 - The strongest claims are empirical: fusing several experts and collaborative signals before truncation beats tuned rank fusion, stacking, LIME-Rec and LambdaMART; learning the fusion on held-out users is essential, and we show why (target leakage, mostly through the co-occurrence graph).
-- Architectural novelty is weak where it was claimed (MLP gate = feature-weighted stacking; LLM judge ≈ LlamaRec). J2 (pair-level weights) is the one architectural change that helps and needs confirmation.
-- LLM reranking adds +0.015 NDCG@5 on average only when fused with a strong Stage 1; its benefit is bounded by the recall of the candidate set (cf. The Recall Ceiling of LLM Recommendation Reranking, CIKM 2026).
+- Architectural novelty is weak where it was claimed (MLP gate = feature-weighted stacking; LLM judge ≈ LlamaRec).- LLM reranking adds +0.015 NDCG@5 on average only when fused with a strong Stage 1; its benefit is bounded by the recall of the candidate set (cf. The Recall Ceiling of LLM Recommendation Reranking, CIKM 2026).

@@ -76,7 +76,7 @@ python -m moerec.eval.seeds $WORK/runs/s303 $WORK/runs/s304 $WORK/runs/s305
 | `moerec/stage1` | Nomination, channels and gate inputs (`channels`), J1 learning (`j1`), CLI (`pipeline`) |
 | `moerec/stage2` | Judge prompts, fold-2 training pairs, LoRA training, scoring, fusion (`fuse`) |
 | `moerec/baselines` | Early / late score fusion, LIME-Rec, Feature-Weighted Linear Stacking (`fwls`), listwise LLM, LlamaRec, TALLRec |
-| `moerec/eval` | Main report, larger pools, ablation, seed table, inference cost (`cost`) |
+| `moerec/eval` | Main report, larger pools, ablation, seed table, inference cost (`cost`), gate-learning protocols (`holdout_protocols`) |
 
 ## Tests
 
