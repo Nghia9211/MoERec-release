@@ -34,15 +34,52 @@ Stage 1 = J1 (3 experts + 5 signals, global weights and per-user gate learned jo
 
 J1 vs LIME-Rec (trained on the same fold-1 users): J1 better on 6/7 datasets.
 
-## 2. By scenario (mean over 7 datasets)
+## 2. By scenario (pool 100)
 
-| Method | Classic | Cold start (short history) |
-|---|---|---|
-| SASRec | 0.4468 | 0.4495 |
-| Late CombSUM | 0.4777 | 0.4818 |
-| J1 | 0.4919 | 0.4940 |
-| LlamaRec + Stage 1 | 0.5086 | 0.5077 |
-| Stage 1 + 2 | 0.5089 | 0.5060 |
+Same runs and test users as Section 1, split by the benchmark scenario of each test user: **classic** (regular history) and **cold start** (user cold start, short history). Users per dataset are in the first row; Mean = unweighted mean over the 7 datasets. Significance tests are reported for all users only (Section 1). LIME-Rec is not split by scenario in its archived output and is omitted here.
+
+### 2a. Classic
+
+| Method | Video Games | Musical Instr. | Industrial & Sci. | Goodreads | Yelp | Cell Phones | Movies & TV | Mean |
+|---|---|---|---|---|---|---|---|---|
+| *Users* | 1,239 | 988 | 304 | 1,332 | 1,927 | 1,006 | 1,200 | 7,996 |
+| SASRec | 0.5403 | 0.3878 | 0.3593 | 0.5423 | 0.5367 | 0.3705 | 0.3908 | 0.4468 |
+| LightGCN | 0.4599 | 0.3564 | 0.3528 | 0.5607 | 0.4781 | 0.3087 | 0.3927 | 0.4156 |
+| Semantic (MPNet) | 0.2332 | 0.1679 | 0.1631 | 0.2836 | 0.1614 | 0.1747 | 0.2498 | 0.2048 |
+| Early fusion, 3 experts (weights tuned) | 0.5587 | 0.4012 | 0.3910 | 0.6119 | 0.5437 | 0.4039 | 0.4573 | 0.4811 |
+| Late CombSUM (tuned) | 0.5536 | 0.4069 | 0.3760 | 0.6091 | 0.5439 | 0.4068 | 0.4476 | 0.4777 |
+| Late RRF (tuned) | 0.5395 | 0.3927 | 0.3779 | 0.5813 | 0.5382 | 0.3802 | 0.4194 | 0.4613 |
+| J1 without gate | 0.5641 | 0.4095 | 0.3885 | 0.6326 | 0.5525 | 0.3998 | 0.4634 | 0.4872 |
+| **MoERec Stage 1 (J1)** | 0.5718 | 0.4099 | 0.3903 | 0.6388 | 0.5542 | 0.4067 | 0.4717 | 0.4919 |
+| Listwise zero-shot LLM (Qwen3-8B) | 0.4775 | 0.3160 | 0.2909 | 0.5622 | 0.3955 | 0.3339 | 0.4349 | 0.4016 |
+| Judge alone (top-10 of J1) | 0.3974 | 0.1855 | 0.1618 | 0.6080 | 0.2625 | 0.3306 | 0.4173 | 0.3376 |
+| LlamaRec alone (top-20 of J1) | 0.4668 | 0.2828 | 0.2590 | 0.5119 | 0.3235 | 0.3782 | 0.4536 | 0.3823 |
+| TALLRec alone (top-10 of J1) | 0.4662 | 0.3025 | 0.2807 | 0.5341 | 0.3664 | 0.3763 | 0.4255 | 0.3931 |
+| LlamaRec + Stage 1 (same λ rule) | 0.5832 | 0.4103 | 0.3956 | 0.6649 | 0.5549 | 0.4499 | 0.5014 | 0.5086 |
+| TALLRec + Stage 1 (same λ rule) | 0.5775 | 0.4114 | 0.3803 | 0.6597 | 0.5538 | 0.4391 | 0.4878 | 0.5014 |
+| **MoERec Stage 1 + 2** | 0.5783 | 0.4111 | 0.3840 | 0.6873 | 0.5590 | 0.4423 | 0.5005 | 0.5089 |
+
+### 2b. Cold start (short history)
+
+| Method | Video Games | Musical Instr. | Industrial & Sci. | Goodreads | Yelp | Cell Phones | Movies & TV | Mean |
+|---|---|---|---|---|---|---|---|---|
+| *Users* | 2,525 | 1,845 | 1,115 | 1,044 | 2,782 | 2,542 | 2,221 | 14,074 |
+| SASRec | 0.5212 | 0.4046 | 0.3126 | 0.5837 | 0.5367 | 0.3695 | 0.4180 | 0.4495 |
+| LightGCN | 0.4738 | 0.4013 | 0.3197 | 0.5784 | 0.5076 | 0.2992 | 0.4317 | 0.4302 |
+| Semantic (MPNet) | 0.2286 | 0.1812 | 0.1915 | 0.2987 | 0.1739 | 0.1634 | 0.2488 | 0.2123 |
+| Early fusion, 3 experts (weights tuned) | 0.5368 | 0.4359 | 0.3548 | 0.6341 | 0.5443 | 0.3902 | 0.4863 | 0.4832 |
+| Late CombSUM (tuned) | 0.5359 | 0.4336 | 0.3536 | 0.6351 | 0.5434 | 0.3927 | 0.4785 | 0.4818 |
+| Late RRF (tuned) | 0.5239 | 0.4245 | 0.3297 | 0.5990 | 0.5399 | 0.3737 | 0.4580 | 0.4641 |
+| J1 without gate | 0.5368 | 0.4416 | 0.3636 | 0.6501 | 0.5451 | 0.3968 | 0.4920 | 0.4894 |
+| **MoERec Stage 1 (J1)** | 0.5431 | 0.4405 | 0.3693 | 0.6622 | 0.5486 | 0.3974 | 0.4967 | 0.4940 |
+| Listwise zero-shot LLM (Qwen3-8B) | 0.4574 | 0.3622 | 0.3146 | 0.5833 | 0.3852 | 0.3269 | 0.4499 | 0.4114 |
+| Judge alone (top-10 of J1) | 0.3866 | 0.1931 | 0.1540 | 0.5808 | 0.2809 | 0.2940 | 0.3967 | 0.3266 |
+| LlamaRec alone (top-20 of J1) | 0.4463 | 0.3060 | 0.2767 | 0.5351 | 0.3032 | 0.3420 | 0.4390 | 0.3783 |
+| TALLRec alone (top-10 of J1) | 0.4547 | 0.3179 | 0.2774 | 0.5508 | 0.3632 | 0.3388 | 0.4361 | 0.3913 |
+| LlamaRec + Stage 1 (same λ rule) | 0.5550 | 0.4453 | 0.3756 | 0.6793 | 0.5512 | 0.4313 | 0.5163 | 0.5077 |
+| TALLRec + Stage 1 (same λ rule) | 0.5500 | 0.4397 | 0.3744 | 0.6725 | 0.5491 | 0.4255 | 0.5080 | 0.5027 |
+| **MoERec Stage 1 + 2** | 0.5553 | 0.4415 | 0.3688 | 0.6845 | 0.5565 | 0.4215 | 0.5142 | 0.5060 |
+
 
 ## 3. Three seeds (303, 304, 305)
 
