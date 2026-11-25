@@ -235,6 +235,19 @@ Dose-response (share of in-sample rows in the learning set, same total): 0.4922 
 
 Collapse (test NDCG@5, fold-1 learning minus in-sample learning): all 8 channels 0.0858; 3 experts only 0.0164; without the 2 co-occurrence channels 0.0233. About 73% of the collapse comes from the co-occurrence graph containing the very interaction to predict (a known form of target leakage; cf. out-of-fold stacking, SpotTarget, CatBoost ordered statistics).
 
+**Cheaper gate-learning protocols** (`moerec.eval.holdout_protocols`; same BlindFuse recipe, seed 303, test NDCG@5; designed after the main results, so diagnostic). Per-dataset values and the reasoning: [FINDINGS.md](FINDINGS.md), section 2.
+
+| Protocol: learning rows / what has seen their answer | NDCG@5 | vs BlindFuse (significant, of 7) |
+|---|---|---|
+| BlindFuse: fold 1 / nothing | 0.4920 | |
+| Reused SASRec validation split / LightGCN and the co-occurrence graph | 0.3870 | 7 worse |
+| Same rows, answer edges removed from the graph / LightGCN | 0.4295 | 7 worse |
+| Fold-1 subset of the same size / nothing | 0.4906 | 1 worse |
+| One expert set (fold-1 experts also score the test pools) / nothing | 0.4905 | 0 |
+| In-sample (reference) / every component | 0.4063 | (section 7 above) |
+
+A split held out for one expert only is worse than learning fully in-sample; a single expert set that never saw the held-out items is enough.
+
 ## 8. Inference cost
 
 Stage 1 on CPU (Intel Xeon Silver 4510, 8 threads, 300 test users per dataset), ms per user, mean over 7 datasets:
