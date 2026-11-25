@@ -1,15 +1,15 @@
 # MoERec
 
-Code for **MoERec**: multi-expert recommendation that fuses the experts *before* truncating the candidate list, followed by an LLM judge that is trained on held-out users.
+Code for **MoERec**: multi-expert recommendation that fuses the experts *before* truncating the candidate list, followed by an LLM judge that is trained on held-out users. The two stages are called **BlindFuse** and **BlindJudge**: each is learned on users whose answers none of the components it relies on has seen.
 
-**Stage 1 (J1).** Three experts score a candidate pool: SASRec, LightGCN and a semantic expert (MPNet). Each expert nominates its own top-20, and the union of these lists is re-scored on 8 channels:
+**Stage 1 (BlindFuse).** Three experts score a candidate pool: SASRec, LightGCN and a semantic expert (MPNet). Each expert nominates its own top-20, and the union of these lists is re-scored on 8 channels:
 
 - the 3 expert scores;
 - 5 collaborative and content signals: co-occurrence sum and max, popularity, brand share and category overlap.
 
 The channels are mixed with per-user weights `w(u) = w + Δ(x_u)`. A small gate (MLP [32, 16]) produces `Δ` from 12 context features of the user. The global weights `w` and the gate are learned **jointly** on held-out users (fold 1) from a neutral start.
 
-**Stage 2.** A pointwise judge (Qwen3-8B + LoRA) scores the Stage 1 top-10. It is trained on a second, disjoint group of held-out users (fold 2). The final score is `z(Stage 1) + λ · z(judge)`, with `λ` chosen on calibration users.
+**Stage 2 (BlindJudge).** A pointwise LLM judge (Qwen3-8B + LoRA) scores the Stage 1 top-10. It is trained on a second, disjoint group of held-out users (fold 2). The final score is `z(Stage 1) + λ · z(BlindJudge)`, with `λ` chosen on calibration users.
 
 This repository contains code only. No datasets, checkpoints or model weights are included. Summary tables of the results (Stage 1, Stage 2 and all baselines) are in [RESULTS.md](RESULTS.md); follow-up analyses (why the pipeline works, leakage, pair-level weights, LLM reranker variants) are explained in [FINDINGS.md](FINDINGS.md).
 
@@ -21,7 +21,7 @@ pip install -r requirements.txt
 
 - **Stage 1 and the baselines without an LLM:** run on CPU.
 - **Expert training:** runs on CPU or GPU.
-- **Judge and LLM baselines:** need one GPU with about 24 GB free (bf16 Qwen3-8B). They also need a local copy of the model and of `sentence-transformers/all-mpnet-base-v2`.
+- **BlindJudge and LLM baselines:** need one GPU with about 24 GB free (bf16 Qwen3-8B). They also need a local copy of the model and of `sentence-transformers/all-mpnet-base-v2`.
 
 ## Data
 
@@ -53,7 +53,7 @@ Candidate pools (`moerec.data.pools`):
 ```bash
 export WORK=/path/to/work LLM_PATH=/path/to/Qwen3-8B GPU=0
 bash scripts/run_dataset.sh industrial          # seed 303
-bash scripts/run_dataset.sh industrial 304      # seed variance: experts, J1 and judge retrained with seed 304
+bash scripts/run_dataset.sh industrial 304      # seed variance: experts, BlindFuse and BlindJudge retrained with seed 304
 python -m moerec.eval.report $WORK/runs/s303    # main table, all datasets
 python -m moerec.eval.large_report $WORK/runs/s303
 python -m moerec.eval.seeds $WORK/runs/s303 $WORK/runs/s304 $WORK/runs/s305
@@ -62,10 +62,10 @@ python -m moerec.eval.seeds $WORK/runs/s303 $WORK/runs/s304 $WORK/runs/s305
 `run_dataset.sh` runs these steps; each one is skipped when its output exists:
 
 1. **Experts:** main, fold 1, fold 2.
-2. **Stage 1:** score pools, fold-1 rows, J1.
-3. **Stage 2:** judge pairs from fold 2, LoRA training, top-10 scoring, fusion.
+2. **Stage 1:** score pools, fold-1 rows, BlindFuse.
+3. **Stage 2:** BlindJudge training pairs from fold 2, LoRA training, top-10 scoring, fusion.
 4. **Baselines:** LIME-Rec, listwise zero-shot LLM, LlamaRec, TALLRec.
-5. **Large pools:** pool 500, pool 1000 and full catalogue, scored with the same judge.
+5. **Large pools:** pool 500, pool 1000 and full catalogue, scored with the same BlindJudge.
 6. **Stage 1 ablation.**
 
 `STEPS="stage1 stage2"` selects a subset of these steps.
@@ -73,10 +73,10 @@ python -m moerec.eval.seeds $WORK/runs/s303 $WORK/runs/s304 $WORK/runs/s305
 | Module | Role |
 |---|---|
 | `moerec/experts` | Expert training (`train`), document vectors (`encode`), pool scoring (`score`) |
-| `moerec/stage1` | Nomination, channels and gate inputs (`channels`), J1 learning (`j1`), CLI (`pipeline`) |
-| `moerec/stage2` | Judge prompts, fold-2 training pairs, LoRA training, scoring, fusion (`fuse`) |
-| `moerec/baselines` | Early / late score fusion, LIME-Rec, Feature-Weighted Linear Stacking (`fwls`), listwise LLM, LlamaRec, TALLRec |
-| `moerec/eval` | Main report, larger pools, ablation, seed table, inference cost (`cost`), gate-learning protocols (`holdout_protocols`) |
+| `moerec/stage1` | Nomination, channels and gate inputs (`channels`), BlindFuse learning (`j1`; the code keeps the earlier name J1), CLI (`pipeline`) |
+| `moerec/stage2` | BlindJudge prompts, fold-2 training pairs, LoRA training, scoring, fusion (`fuse`) |
+| `moerec/baselines` | Early / late score fusion, LIME-Rec, Feature-Weighted Linear Stacking (`fwls`), UMRE (`umre`), listwise LLM, LlamaRec, TALLRec |
+| `moerec/eval` | Main report, larger pools, ablation, seed table, inference cost (`cost`), gate-learning protocols (`holdout_protocols`), whole-catalogue baselines and table (`full_baselines`, `full_report`, `full_top20`) |
 
 ## Tests
 
@@ -91,9 +91,9 @@ python tests/reproduce.py <dataset> ...      # regression check against archived
 - Results computed on CPU with float32 can differ in the last digits with a different thread count. `OMP_NUM_THREADS` defaults to 6 for the Stage 1 learning steps.
 - The regression check reproduced the archived pool-100 study on all 7 datasets. The following are exactly equal:
   - data, folds, calibration users and pools;
-  - expert scores, J1, judge prompts and training pairs;
+  - expert scores, BlindFuse, BlindJudge prompts and training pairs;
   - Stage 2 fusion;
   - LIME-Rec, the Stage 1 ablation and the pool-500 outputs (with the same thread count);
   - every NDCG@5 in the main table.
 
-  On GPU, the judge, LlamaRec, TALLRec and listwise scores are identical. The only difference is one NDCG@10 cell (Late RRF, Industrial, 0.3761 on Linux vs 0.3762 on Windows): exact ties in the RRF scores break differently with the platform's float summation.
+  On GPU, BlindJudge, LlamaRec, TALLRec and listwise scores are identical. The only difference is one NDCG@10 cell (Late RRF, Industrial, 0.3761 on Linux vs 0.3762 on Windows): exact ties in the RRF scores break differently with the platform's float summation.
