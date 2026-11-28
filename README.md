@@ -1,8 +1,8 @@
 # MoERec
 
-Code for **MoERec**: multi-expert recommendation that fuses the experts *before* truncating the candidate list, followed by an LLM judge that is trained on held-out users. The two stages are called **BlindFuse** and **BlindJudge**: each is learned on users whose answers none of the components it relies on has seen.
+Code for **MoERec**: multi-expert recommendation in which every learned component is **blind to the answer**. A learned fusion of recommender experts silently breaks when any of its inputs (an expert, the co-occurrence graph, a popularity count) has already seen the interaction it is trained to predict; reusing a split that is held out for one expert only is worse than learning fully in-sample. MoERec therefore learns its two stages on two disjoint groups of held-out users, with every expert and graph signal rebuilt without their answers: **BlindFuse** (Stage 1, fusion of the experts) and **BlindJudge** (Stage 2, an LLM judge on the BlindFuse top-10).
 
-**Stage 1 (BlindFuse).** Three experts score a candidate pool: SASRec, LightGCN and a semantic expert (MPNet). Each expert nominates its own top-20, and the union of these lists is re-scored on 8 channels:
+**Stage 1 (BlindFuse).** Three experts score a candidate pool: SASRec, LightGCN and a semantic expert (MPNet). Each expert nominates its own top-20, and the union of these lists is re-scored on 8 channels (the fusion is applied before the list is truncated to the final top-k):
 
 - the 3 expert scores;
 - 5 collaborative and content signals: co-occurrence sum and max, popularity, brand share and category overlap.
@@ -10,6 +10,22 @@ Code for **MoERec**: multi-expert recommendation that fuses the experts *before*
 The channels are mixed with per-user weights `w(u) = w + Δ(x_u)`. A small gate (MLP [32, 16]) produces `Δ` from 12 context features of the user. The global weights `w` and the gate are learned **jointly** on held-out users (fold 1) from a neutral start.
 
 **Stage 2 (BlindJudge).** A pointwise LLM judge (Qwen3-8B + LoRA) scores the Stage 1 top-10. It is trained on a second, disjoint group of held-out users (fold 2). The final score is `z(Stage 1) + λ · z(BlindJudge)`, with `λ` chosen on calibration users.
+
+## Motivation: blindness belongs to the complete input pipeline
+
+Out-of-fold learning is not only a property of the downstream model. Every input to that model must also be computed without the interaction it is asked to predict. This distinction matters in recommendation because a learned component may receive co-occurrence statistics, graph embeddings, popularity features, or ranks from a collaborative-filtering (CF) model in addition to ordinary model predictions. A split held out for one expert does not make these other inputs blind.
+
+The main study establishes the mechanism at Stage 1: learning fusion from inputs that had seen the answer reduced mean test NDCG@5 by 0.0859 across seven datasets, and about 73% of this collapse was attributable to the co-occurrence graph. A follow-up experiment tests the same mechanism in an LLM reranker, reflecting LLM-CF pipelines that train an LLM or alignment module on interactions already used to fit the CF model. `CF-in` supplies training-time ranks from experts that saw the target interaction; `CF-Blind` changes only those training-time ranks to ones produced by fold-2 experts that did not. Both variants use the same Qwen3-8B reranker, rows, labels, candidates, prompts and hyperparameters, and both receive the same production-expert ranks at calibration and test.
+
+| Dataset | CF-in alone | CF-Blind alone | Δ | CF-in + BlindFuse | CF-Blind + BlindFuse | Δ |
+|---|---:|---:|---:|---:|---:|---:|
+| Goodreads | 0.6147 | 0.6243 | +0.0095 | 0.6481 | 0.6580 | +0.0099 |
+| Cell Phones | 0.3483 | 0.4215 | +0.0732 | 0.4050 | 0.4279 | +0.0228 |
+| Movies & TV | 0.4632 | 0.4972 | +0.0341 | 0.4890 | 0.5026 | +0.0136 |
+| Video Games | 0.5365 | 0.5483 | +0.0118 | 0.5532 | 0.5547 | +0.0016 |
+| **Macro mean** | **0.4907** | **0.5228** | **+0.0322** | **0.5238** | **0.5358** | **+0.0120** |
+
+The standalone gain is significant by paired bootstrap on all four datasets. After fusion with BlindFuse, the gain is significant on Goodreads, Cell Phones and Movies & TV, but not on Video Games. This controlled result supports an input-level train-test mismatch; it does not establish that every published LLM-CF system is affected. Full confidence intervals and protocol boundaries are reported in [FINDINGS.md](FINDINGS.md), section 2.
 
 This repository contains code only. No datasets, checkpoints or model weights are included. Summary tables of the results (Stage 1, Stage 2 and all baselines) are in [RESULTS.md](RESULTS.md); follow-up analyses (why the pipeline works, leakage, pair-level weights, LLM reranker variants) are explained in [FINDINGS.md](FINDINGS.md).
 

@@ -56,6 +56,18 @@ Reusing the validation split collapses *further* than learning fully in-sample (
 
 The requirement is therefore stronger than "learn the fusion out-of-fold": every expert *and* every collaborative signal must be computed without the held-out interaction. A split that is held out for one expert only, such as the early-stopping split of SASRec, gives the worst of the protocols we tested. The same trap is reported for LLM rerankers trained on users that overlap with the evaluation users (The Recall Ceiling of LLM Recommendation Reranking, CIKM 2026).
 
+**The same requirement extends to CF signals supplied to an LLM.** Pure ranking ensembles often state that their base-model and ensemble-learning data are disjoint. In several LLM-CF designs, however, a CF model is fitted on the training interactions and its ranks or embeddings are then supplied while an LLM or alignment module is trained on examples from those same interactions. The final test interaction can be held out while the *training-time input* has still seen its answer. We isolated this mismatch with two Qwen3-8B rerankers over the BlindFuse top-20. `CF-in` received training ranks from the main SASRec, LightGCN and Semantic experts, which had seen the fold-2 targets. `CF-Blind` received ranks from fold-2 experts that had not. Training rows, labels, candidate order, prompts and hyperparameters were identical; at calibration and test, both variants received the same main-expert ranks, which were blind to the test answers. Fusion used `z(BlindFuse) + lambda z(LLM)` over the BlindFuse top-10, with lambda selected on calibration.
+
+| Dataset | n | CF-in alone | CF-Blind alone | Gain alone [95% CI] | CF-in fused | CF-Blind fused | Gain fused [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Goodreads | 2,376 | 0.6147 | 0.6243 | +0.0095 [+0.0030, +0.0163] | 0.6481 | 0.6580 | +0.0099 [+0.0061, +0.0138] |
+| Cell Phones | 3,548 | 0.3483 | 0.4215 | +0.0732 [+0.0631, +0.0830] | 0.4050 | 0.4279 | +0.0228 [+0.0171, +0.0288] |
+| Movies & TV | 3,421 | 0.4632 | 0.4972 | +0.0341 [+0.0275, +0.0410] | 0.4890 | 0.5026 | +0.0136 [+0.0091, +0.0183] |
+| Video Games | 3,764 | 0.5365 | 0.5483 | +0.0118 [+0.0071, +0.0163] | 0.5532 | 0.5547 | +0.0016 [-0.0021, +0.0053] |
+| **Macro mean** | | **0.4907** | **0.5228** | **+0.0322** | **0.5238** | **0.5358** | **+0.0120** |
+
+The paired bootstrap used 2,000 resamples. CF-Blind improved standalone NDCG@5 significantly on all four datasets. Its fused gain was significant on three of four; Video Games was directionally positive but inconclusive. This is supporting evidence that blindness is a property of the complete input pipeline, not a direct reproduction of any named LLM-CF paper. The experiment covers four datasets and one controlled training configuration, so it does not justify the claim that all published LLM-CF systems leak.
+
 ## 3. LambdaMART on the same Stage 1 inputs
 
 LambdaMART (LightGBM lambdarank) is trained on the same fold-1 users and candidates (U) as BlindFuse, with 26 per-candidate features: the 8 channels, 6 item-level features (the item's rank under each expert, how many experts nominate it, and how much the experts disagree about it) and the 12 user features of the gate.
